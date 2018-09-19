@@ -1,6 +1,7 @@
 from chatserver import ChatServer
 from socket import socket, AF_INET, SOCK_STREAM
 import unittest
+from threading import Thread
 
 class TestServer(unittest.TestCase):
 
@@ -17,6 +18,9 @@ class TestServer(unittest.TestCase):
   def test_str_disconnected(self):
     self.server.shutdown_server()
     self.assertEqual(self.server.__str__(),"Server desconectado")
+
+  def test_is_connected(self):
+    self.assertTrue(self.server.is_connected())
 
   def test_get_host(self):
     self.assertIs(self.server.get_host(),self.server.host)

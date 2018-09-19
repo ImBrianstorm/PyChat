@@ -3,16 +3,17 @@ from threading import Thread
 
 class ChatClient:
 
-  def __init__(self, name, host, port):
-    self.name = name
+  def __init__(self, username, host, port):
+    self.username = username
     self.host = host
     self.port = port
     self.address = (host,port)
     self.client_socket = None
+    self.server_socket = None
     self.connected = False
 
   def __str__(self):
-    string = self.name + " -> " + self.host + ":" + str(self.port)
+    string = self.username + " -> " + self.host + ":" + str(self.port)
     if self.is_connected():
         string += " [CONNECTED]"
     else:
@@ -30,11 +31,16 @@ class ChatClient:
       self.client_socket = None
       self.connected = False
 
+  def close_server_socket(self):
+    if self.server_socket != None:
+      self.server_socket.close()
+      self.server_socket = None
+
   def is_connected(self):
     return self.connected
 
-  def get_name(self):
-    return self.name
+  def get_username(self):
+    return self.username
 
   def get_host(self):
     return self.host
@@ -48,8 +54,11 @@ class ChatClient:
   def get_socket(self):
     return self.client_socket
 
-  def set_name(self, name):
-    self.name = name
+  def get_server_socket(self):
+   return self.server_socket
+
+  def set_username(self, username):
+    self.username = username
 
   def set_host(self, host):
     self.host = host
@@ -64,4 +73,10 @@ class ChatClient:
     if client_socket == None:
       self.close_socket()
     else:
+      self.client_socket.close()
       self.client_socket = client_socket
+
+  def set_server_socket(self,server_socket):
+    self.close_server_socket()
+    if self.server_socket != None:
+      self.server_socket = server_socket
