@@ -51,13 +51,13 @@ class TestServer(unittest.TestCase):
 
   def test_set_socket(self):
     self.server.shutdown_server()
-    newSocket = socket(AF_INET, SOCK_STREAM)
+    new_socket = socket(AF_INET, SOCK_STREAM)
     address = ('127.0.0.1',1235)
-    newSocket.bind(address)
-    newSocket.listen()
+    new_socket.bind(address)
+    new_socket.listen()
     self.server.connected = True
-    self.server.set_socket(newSocket)
-    self.assertIs(newSocket,self.server.server_socket)
+    self.server.set_socket(new_socket)
+    self.assertIs(new_socket,self.server.server_socket)
 
   def test_set_socket_None(self):
     socket = None

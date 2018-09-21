@@ -21,3 +21,9 @@ class NonexistentChatRoomException(Exception):
 
 class RoomAlreadyInServerException(Exception):
   pass
+
+class InviterClientIsNotOwnerException(Exception):
+  pass
+
+class ClientNotFoundException(Exception):
+  pass

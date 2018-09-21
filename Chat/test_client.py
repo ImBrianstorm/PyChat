@@ -24,8 +24,8 @@ class TestClient(unittest.TestCase):
     self.client.close_socket()
     self.assertEqual(self.client.__str__(),"Mauricio -> localhost:1234 [DISCONNECTED]")
 
-  def test_get_name(self):
-    self.assertIs(self.client.get_name(),self.client.name)
+  def test_get_username(self):
+    self.assertIs(self.client.get_username(),self.client.username)
 
   def test_get_host(self):
     self.assertIs(self.client.get_host(),self.client.host)
@@ -39,10 +39,10 @@ class TestClient(unittest.TestCase):
   def test_get_socket(self):
     self.assertIs(self.client.get_socket(),self.client.client_socket)
 
-  def test_set_name(self):
-    name = "Aglae"
-    self.client.set_name(name)
-    self.assertIs(name,self.client.name)
+  def test_set_username(self):
+    username = "Aglae"
+    self.client.set_username(username)
+    self.assertIs(username,self.client.username)
 
   def test_set_host(self):
     host = "127.0.0.8"
@@ -61,11 +61,11 @@ class TestClient(unittest.TestCase):
 
   def test_set_socket(self):
     self.client.close_socket()
-    newSocket = socket(AF_INET, SOCK_STREAM)
+    new_socket = socket(AF_INET, SOCK_STREAM)
     address = ("127.0.0.1",1234)
-    newSocket.connect(address)
-    self.client.set_socket(newSocket)
-    self.assertIs(newSocket,self.client.client_socket)
+    new_socket.connect(address)
+    self.client.set_socket(new_socket)
+    self.assertIs(new_socket,self.client.client_socket)
 
   def test_set_socket_None(self):
     socket = None

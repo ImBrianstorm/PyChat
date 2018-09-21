@@ -3,7 +3,7 @@ from threading import Thread
 
 class ChatClient:
 
-  def __init__(self, username, host, port):
+  def __init__(self, username, host="localhost", port=1234):
     self.username = username
     self.host = host
     self.port = port
@@ -70,13 +70,13 @@ class ChatClient:
     self.address = address
 
   def set_socket(self, client_socket):
-    if client_socket == None:
-      self.close_socket()
-    else:
-      self.client_socket.close()
+    self.close_socket()
+    if client_socket is not None:
+      self.connected = True
       self.client_socket = client_socket
 
   def set_server_socket(self,server_socket):
     self.close_server_socket()
-    if self.server_socket != None:
+    if server_socket is not None:
+      self.connected = True
       self.server_socket = server_socket

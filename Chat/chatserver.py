@@ -1,21 +1,22 @@
-from customexceptions import (ExistingUsernameException, PublicRoomException,
-                              ClientAlreadyInRoomException, NotInvitedClientException,
-                              ClientAlreadyInvitedException, NonexistentClientException,
-                              NonexistentChatRoomException, RoomAlreadyInServerException)
+from customexceptions import (ExistingUsernameException, NonexistentChatRoomException,
+                             RoomAlreadyInServerException, ClientNotFoundException,
+                             InviterClientIsNotOwnerException, ClientAlreadyInvitedException,
+                             ClientAlreadyInRoomException, NotInvitedClientException)
 from chatclient import ChatClient
+from chatroom import ChatRoom
 from socket import socket, AF_INET, SOCK_STREAM
 from threading import Thread
 
 class ChatServer:
 
-  def __init__(self, host="", port=1234):
+  def __init__(self, host="0.0.0.0", port=1234):
     self.host = host
     self.port = port
     self.bufsize = 1024
     self.server_socket = None
     self.connected = False
-    self.clients_list = []
-    self.chatroom_list = [ChatRoom()]
+    self.public_room = ChatRoom()
+    self.chatroom_list = [self.public_room]
 
   def __str__(self):
     string = "Server "
@@ -30,6 +31,8 @@ class ChatServer:
     self.server_socket.bind(address)
     self.server_socket.listen()
     self.connected = True
+    print("Server conectado en el puerto " + str(self.port) + "...")
+    print("Presione ctrl+c para apagar...")
     print("Esperando por conexiones...")
 
   def shutdown_server(self):
@@ -44,51 +47,53 @@ class ChatServer:
     Thread(target=self.handle_client, args=(client_socket, client_address)).start()
 
   def handle_client(self,client_socket,client_address):
+    welcome = "¡Bienvenido a PyChat!"
+    client_socket.send(bytes(welcome, "utf-8"))
+
     identified, client = self.identify_client(client_socket,client_address)
+
     if identified:
       while client.is_connected():
-        message = client.get_socket().recv(self.bufsize).decode("utf-8").strip()
+        message = client.get_server_socket().recv(self.bufsize).decode("utf-8").strip()
         if message != "DISCONNECT":
-          self.process_message(message)
+          self.process_message(message,client)
         else:
-          name = client.get_name()
-          client.close_socket()
+          name = client.get_username()
+          host,port = client_address
+          client_socket.close()
           self.remove_from_all_chatrooms(client)
           leave_message = "%s se ha ido :(" % name
-          print("%s se ha desconectado" % name)
-          get_chat_room("public_room").broadcast(leave_message)
+          print("{} ({}:{}) se ha desconectado...".format(name,host,port))
+          self.public_room.broadcast(leave_message)
           break
 
   def identify_client(self,client_socket,client_address):
     not_identified = True
-    welcome = '¡Bienvenido a Pychat!\n'
-    client_socket.send(bytes(welcome, "utf-8"))
 
     while not_identified:
-      identify = 'Ingresa "IDENTIFY username" (donde username es el nombre que usarás)\n'
-      disconnect = 'O bien, ingresa "DISCONNECT" para salir'
+      identify = "\nIngresa 'IDENTIFY username' (donde username es el nombre que usarás)"
       client_socket.send(bytes(identify, "utf-8"))
+      disconnect = "\nO bien, ingresa 'DISCONNECT' para salir"
       client_socket.send(bytes(disconnect, "utf-8"))
-      message = client_socket.recv(self.bufsize).decode("utf-8").strip()
+      message = client_socket.recv(self.bufsize).decode("utf-8")
 
       if message.startswith("IDENTIFY"):
         name = message[len("IDENTIFY "):]
         try:
-          self.get_chat_room("public_room").verify_name(name)
+          self.public_room.verify_name(name)
         except ExistingUsernameException:
-          username_error = '%s ya existe en el server. Intentalo de nuevo' % name
+          username_error = '"%s" ya está en uso. Prueba con otro\n' % name
           client_socket.send(bytes(username_error, "utf-8"))
           continue
         host,port = client_address
         client = ChatClient(name,host,port)
-        client.set_address(client_address)
         client.set_server_socket(client_socket)
         print('{}:{} se ha identificado como: {}'.format(host,port,name))
-        greeting = '¡Hola %s! Ahora puedes comenzar a mandar mensajes' % name
+        greeting = '¡Hola %s! Ahora puedes comenzar a disfrutar de PyChat :)' % name
         client_socket.send(bytes(greeting, "utf-8"))
         join_message = "%s se ha unido al chat. ¡Sé amable y di hola!" % name
-        self.get_chat_room("public_room").broadcast(join_message)
-        self.clients_list.append(client)
+        self.public_room.broadcast(join_message)
+        self.public_room.add_client(client)
         return True, client
 
       elif message == "DISCONNECT":
@@ -101,23 +106,138 @@ class ChatServer:
       error = "¡Creo que has cometido un error!"
       client_socket.send(bytes(error, "utf-8"))
 
-  def process_message(self,message):
-    message = message.strip()
+  def process_message(self,message,client):
     # STATUS userstatus
+    if message.startswith("STATUS "):
+      pass
+
     # USERS
+    elif message == "USERS":
+      users = "Usuarios: "
+      usernames = []
+      for name in self.public_room.get_client_names():
+        usernames.append(name)
+      users += ", ".join(usernames)
+      client.get_server_socket().send(bytes(users,"utf-8"))
+
     # MESSAGE username messageContent
+    elif message.startswith("MESSAGE "):
+      message_args = message.split(" ")[1:]
+      if len(message_args)!=2:
+        error = "No escribiste el numero correcto de argumentos (username, messageContent)"
+        client.get_server_socket().send(bytes(error,"utf-8"))
+      else:
+        try:
+          username = self.public_room.get_client_by_username(message_args[0])
+          if username is client:
+             message = "¡Vamos, " + client.get_username() + "! ¿Por qué no hablar con alguien más? :)"
+             client.get_server_socket().send(bytes(message,"utf-8"))
+          else:
+            message_from = "Mensaje privado de " + client.get_username() + ": " + message_args[1]
+            message_to = "Mensaje privado para " + username.get_username() + ": " + message_args[1]
+            username.get_server_socket().send(bytes(message_from,"utf-8"))
+            client.get_server_socket().send(bytes(message_to,"utf-8"))
+        except ClientNotFoundException:
+          error = "El usuario al que intentas mandar un mensaje no existe :("
+          client.get_server_socket().send(bytes(error,"utf-8"))
+
     # PUBLICMESSAGE messageContent
+    elif message.startswith("PUBLICMESSAGE "):
+      message = client.get_username() + ": " + message[len("PUBLICMESSAGE "):]
+      self.public_room.broadcast(message)
+
     # CREATEROOM roomname
-    # INVITE roomname username1, username,2
+    elif message.startswith("CREATEROOM "):
+      roomname = message[len("CREATEROOM "):]
+      if not roomname:
+        error = "No especificaste un nombre para la sala de chat"
+        client.get_server_socket().send(bytes(error,"utf-8"))
+      elif " " in roomname:
+        error = "No puedes usar espacios al crear una sala de chat :/"
+        client.get_server_socket().send(bytes(error,"utf-8"))
+      else:
+        try:
+          new_chatroom = ChatRoom(room_owner=client,room_name=roomname,is_public=False)
+          self.add_chat_room(new_chatroom)
+          message = "¡Has creado la sala de chat " + roomname + "! Ya puedes invitar a tus amigos :)"
+          client.get_server_socket().send(bytes(message,"utf-8"))
+        except RoomAlreadyInServerException:
+          error = "Ya existe una sala llamada " + roomname + ", intenta con otro nombre :D"
+          client.get_server_socket().send(bytes(error,"utf-8"))
+
+    # INVITE roomname username1, username2...
+    elif message.startswith("INVITE "):
+      invite_args = message.split(" ")[1:]
+      if len(invite_args) < 2:
+        error = "No escribiste el número correcto de argumentos (roomname username1 username2 ...)"
+        client.get_server_socket().send(bytes(error,"utf-8"))
+      else:
+        try:
+          invitation = client.get_username() + ' te ha invitado a su sala de chat "' + invite_args[0] + '"'
+          for client_name in invite_args[1:]:
+            invited_client = self.public_room.get_client_by_username(client_name)
+            self.get_chat_room(invite_args[0]).invite_client(invited_client,client)
+            invited_client.get_server_socket().send(bytes(invitation,"utf-8"))
+          success_message = "Invitaste a " + ", ".join(invite_args[1:]) + ' a ' + invite_args[0]
+          client.get_server_socket().send(bytes(success_message,"utf-8"))
+        except ClientNotFoundException:
+          error = "Al menos uno de los usuarios especificados no existe :/"
+          client.get_server_socket().send(bytes(error,"utf-8"))
+        except InviterClientIsNotOwnerException:
+          error = "No eres propietario de esta sala :("
+          client.get_server_socket().send(bytes(error,"utf-8"))
+        except ClientAlreadyInvitedException:
+          error = "Ya has invitado al menos a alguno de estos usuarios"
+          client.get_server_socket().send(bytes(error,"utf-8"))
+        except NonexistentChatRoomException:
+          error = 'No existe la sala '+ invite_args[0]
+          error += ', pero puedes crearla con "CREATEROOM ' + invite_args[0] + '" :)'
+          client.get_server_socket().send(bytes(error,"utf-8"))
+
     # JOINROOM room_name
+    elif message.startswith("JOINROOM "):
+      room_name = message[len("JOINROOM "):]
+      try:
+        self.get_chat_room(room_name).add_client(client)
+        success_message = 'Te has unido a la sala de chat "' + room_name + '", ¡di hola! :)'
+        client.get_server_socket().send(bytes(success_message,"utf-8"))
+        join_message = client.get_username() + ' se ha unido a "' + room_name + '",¡dile hola! :D'
+        self.get_chat_room(room_name).broadcast(join_message,client_exception=client)
+      except NonexistentChatRoomException:
+        error = 'No existe la sala de chat a la que quieres unirte, pero puedes crearla con '
+        error += '"CREATEROOM ' + room_name + '" ;)'
+        client.get_server_socket().send(bytes(error,"utf-8"))
+      except ClientAlreadyInRoomException:
+        error = "Ya estás en esta sala de chat :O"
+        client.get_server_socket().send(bytes(error,"utf-8"))
+      except NotInvitedClientException:
+        error = "¡Demonios! No has sido invitado a " + room_name + " :("
+        client.get_server_socket().send(bytes(error,"utf-8"))
+
     # ROOMESSAGE roomname messageContent
-    # DISCONNECT
+    elif message.startswith("ROOMESSAGE "):
+      room_message_args = message.split(" ")[1:]
+      if len(room_message_args) != 2:
+        error = "No escribiste el número correcto de argumentos (roomname messageContent)"
+        client.get_server_socket().send(bytes(error,"utf-8"))
+      else:
+        try:
+          if self.get_chat_room(room_message_args[0]).client_found(client):
+            message = client.get_username() + " en "  + room_message_args[0] + ": " + room_message_args[1]
+            self.get_chat_room(room_message_args[0]).broadcast(message)
+          else:
+            error = "No puedes mandar mensajes a esta sala de chat porque no estás en ella :("
+            client.get_server_socket().send(bytes(error,"utf-8"))
+        except NonexistentChatRoomException:
+          error = "No puedes mandar mensajes a esta sala de chat porque no existe, "
+          error = 'pero puedes crearla con "CREATEROOM ' + room_message_args[1] + '"'
+          client.get_server_socket().send(bytes(error,"utf-8"))
 
   def is_connected(self):
     return self.connected
 
   def add_chat_room(self,chatroom):
-    if chatroom_name_exists(chatroom.get_room_name()):
+    if self.chatroom_name_exists(chatroom.get_room_name()):
       raise RoomAlreadyInServerException("Esta sala de chat ya existe en el server")
     else:
       self.chatroom_list.append(chatroom)
@@ -136,7 +256,7 @@ class ChatServer:
 
   def remove_from_all_chatrooms(self,client):
     for room in self.chatroom_list:
-      if client in room:
+      if room.client_found(client):
         room.remove_client(client)
 
   def get_host(self):
@@ -165,68 +285,6 @@ class ChatServer:
       self.shutdown_server()
     else:
       if self.server_socket != None:
+        self.connected = True
         self.server_socket.close()
       self.server_socket = server_socket
-
-class ChatRoom:
-
-  def __init__(self,room_owner=None,room_name="public_room",is_public=True):
-    self.room_owner = room_owner
-    self.room_name = room_name
-    self.room_clients = []
-    self.is_public = is_public
-    if not self.is_public:
-      self.room_clients.append(owner)
-      self.invited_clients = []
-
-  def get_room_owner(self):
-    return self.room_owner
-
-  def get_room_name(self):
-    return self.room_name
-
-  def room_is_public(self):
-    return self.is_public
-
-  def set_room_owner(self,room_owner):
-    self.room_owner = room_owner
-
-  def set_room_name(self,room_name):
-    self.room_name = room_name
-
-  def invite_client(self,client):
-    if self.room_is_public():
-      raise PublicRoomException("No puedes invitar a un cliente a una sala de chat publica")
-    else:
-      if client in self.invited_clients:
-        raise ClientAlreadyInvitedException("Este cliente ya ha sido invitado")
-      else:
-          self.room_clients.append(client)
-
-  def add_client(self,client):
-    if client in self.room_clients:
-      raise ClientAlreadyInRoomException("El cliente ya existe en la sala de chat")
-    else:
-      if self.is_public():
-        self.room_clients.append(client)
-      else:
-        if client not in self.invited_clients:
-          raise NotInvitedClientException("El cliente no ha sido invitado a la sala de chat")
-        else:
-          self.room_clients.append(client)
-          self.invited_clients.remove(client)
-
-  def remove_client(self,client):
-    if client not in self.room_clients:
-      raise NonexistentClientException("El cliente no esta en esta sala de chat")
-    else:
-      self.room_clients.remove(client)
-
-  def verify_name(self,name):
-    for client in self.room_clients:
-      if client.getName() == name:
-        raise ExistingUsernameException("El nombre de usuario ya existe en el server")
-
-  def broadcast(self,message):
-    for client in self.room_clients:
-      client.get_server_socket().send(bytes(message,"utf-8"))

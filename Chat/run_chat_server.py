@@ -1,11 +1,14 @@
 from chatserver import ChatServer
 
 if __name__ == '__main__':
-  port = int(input("Puerto: "))
+  port = input("Puerto: ")
+  if not port:
+    port = 1234
+  else:
+    port = int(port)
   server = ChatServer(port=port)
   server.start_server()
-  listening = True
-  while listening:
+  while server.is_connected():
     try:
       server.accept_client()
     except KeyboardInterrupt:
