@@ -28,11 +28,16 @@ Once we have deployed our server, then we can use our client to enjoy our chat, 
 
 In an attempt to make better software,  I have added a couple of scripts that deploy unit tests, so we can be a little safer that we are making the things right :)
 
-  	# To test the server, we must execute the next line
+To test the server, we must execute the next line
+
     $ python3 test_server.py
-    # Similarly, we execute the next to test the client
+
+Similarly, we execute the next to test the client
+
     $ python3 test_client.py
-    # And finally, we can run the following to test our chatrooms
+
+And finally, we can run the following to test our chatrooms
+
     $ python3 test_chat_room.py
 
 These tests are suppossed to test the code and not to throw errors.
