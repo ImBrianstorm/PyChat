@@ -102,6 +102,7 @@ class ChatServer:
       elif message == "DISCONNECT":
         goodbye = 'Hasta luego :)'
         client_socket.send(bytes(goodbye, "utf-8"))
+        sleep(0.3)
         client_socket.close()
         print("Un cliente no identificado con la direccion %s:%s se ha ido" % client_address)
         return False, None

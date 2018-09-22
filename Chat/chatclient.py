@@ -8,6 +8,7 @@ class ChatClient:
     self.port = port
     self.status = status
     self.address = (host,port)
+    self.bufsize = 1024
     self.client_socket = None
     self.server_socket = None
     self.connected = False
@@ -40,12 +41,12 @@ class ChatClient:
     return self.connected
 
   def receive_message(self):
-      message = client_socket.recv(BUFSIZ).decode("utf-8")
+      message = self.client_socket.recv(self.bufsize).decode("utf-8")
       return message
 
   def send(self,message):
-    self.client_socket.send(bytes(msg, "utf-8"))
-    if msg == "DISCONNECT":
+    self.client_socket.send(bytes(message, "utf-8"))
+    if message == "DISCONNECT":
         self.client_socket.close()
 
   def get_username(self):
