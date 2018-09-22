@@ -1,12 +1,12 @@
 from socket import socket, AF_INET, SOCK_STREAM
-from threading import Thread
 
 class ChatClient:
 
-  def __init__(self, username, host="localhost", port=1234):
+  def __init__(self, username, host="localhost", port=1234,status="ACTIVE"):
     self.username = username
     self.host = host
     self.port = port
+    self.status = status
     self.address = (host,port)
     self.client_socket = None
     self.server_socket = None
@@ -39,6 +39,15 @@ class ChatClient:
   def is_connected(self):
     return self.connected
 
+  def receive_message(self):
+      message = client_socket.recv(BUFSIZ).decode("utf-8")
+      return message
+
+  def send(self,message):
+    self.client_socket.send(bytes(msg, "utf-8"))
+    if msg == "DISCONNECT":
+        self.client_socket.close()
+
   def get_username(self):
     return self.username
 
@@ -56,6 +65,9 @@ class ChatClient:
 
   def get_server_socket(self):
    return self.server_socket
+
+  def get_status(self):
+    return self.status
 
   def set_username(self, username):
     self.username = username
@@ -80,3 +92,6 @@ class ChatClient:
     if server_socket is not None:
       self.connected = True
       self.server_socket = server_socket
+
+  def set_status(self,status):
+    self.status = status

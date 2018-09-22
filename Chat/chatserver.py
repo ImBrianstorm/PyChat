@@ -5,6 +5,7 @@ from customexceptions import (ExistingUsernameException, NonexistentChatRoomExce
 from chatclient import ChatClient
 from chatroom import ChatRoom
 from socket import socket, AF_INET, SOCK_STREAM
+from time import sleep
 from threading import Thread
 
 class ChatServer:
@@ -71,9 +72,11 @@ class ChatServer:
     not_identified = True
 
     while not_identified:
-      identify = "\nIngresa 'IDENTIFY username' (donde username es el nombre que usarás)"
+      sleep(0.3)
+      identify = "Ingresa 'IDENTIFY username' (donde username es el nombre que usarás)"
       client_socket.send(bytes(identify, "utf-8"))
-      disconnect = "\nO bien, ingresa 'DISCONNECT' para salir"
+      sleep(0.3)
+      disconnect = "O bien, ingresa 'DISCONNECT' para salir"
       client_socket.send(bytes(disconnect, "utf-8"))
       message = client_socket.recv(self.bufsize).decode("utf-8")
 
@@ -97,7 +100,7 @@ class ChatServer:
         return True, client
 
       elif message == "DISCONNECT":
-        goodbye = 'Hasta luego, pasajero :)'
+        goodbye = 'Hasta luego :)'
         client_socket.send(bytes(goodbye, "utf-8"))
         client_socket.close()
         print("Un cliente no identificado con la direccion %s:%s se ha ido" % client_address)
@@ -109,14 +112,23 @@ class ChatServer:
   def process_message(self,message,client):
     # STATUS userstatus
     if message.startswith("STATUS "):
-      pass
+      userstatus = message[len("STATUS "):]
+      if userstatus == "ACTIVE" or userstatus == "AWAY" or userstatus == "BUSY":
+        client.set_status(userstatus)
+        success_message = 'Se te ha asignado el estado "' + userstatus + '"'
+        client.get_server_socket().send(bytes(success_message,"utf-8"))
+      else:
+        error = 'No puedes asignar un status distinto a "ACTIVE", "AWAY" o "BUSY"'
+        client.get_server_socket().send(bytes(error,"utf-8"))
 
     # USERS
     elif message == "USERS":
       users = "Usuarios: "
       usernames = []
-      for name in self.public_room.get_client_names():
-        usernames.append(name)
+      for room_client in self.public_room.room_clients:
+        username = room_client.get_username()
+        status = room_client.get_status()
+        usernames.append(username + "(" + status + ")")
       users += ", ".join(usernames)
       client.get_server_socket().send(bytes(users,"utf-8"))
 
@@ -232,6 +244,11 @@ class ChatServer:
           error = "No puedes mandar mensajes a esta sala de chat porque no existe, "
           error = 'pero puedes crearla con "CREATEROOM ' + room_message_args[1] + '"'
           client.get_server_socket().send(bytes(error,"utf-8"))
+
+    #DEFAULT
+    else:
+      error = "El mensaje enviado no es valido"
+      client.get_server_socket().send(bytes(error,"utf-8"))
 
   def is_connected(self):
     return self.connected

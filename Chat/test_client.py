@@ -39,6 +39,9 @@ class TestClient(unittest.TestCase):
   def test_get_socket(self):
     self.assertIs(self.client.get_socket(),self.client.client_socket)
 
+  def test_get_status(self):
+    self.assertEqual(self.client.get_status(),self.client.status)
+
   def test_set_username(self):
     username = "Aglae"
     self.client.set_username(username)
@@ -71,6 +74,10 @@ class TestClient(unittest.TestCase):
     socket = None
     self.client.set_socket(socket)
     self.assertIs(socket,self.client.client_socket)
+
+  def test_set_status(self):
+    self.client.set_status("BUSY")
+    self.assertEqual(self.client.status,"BUSY")
 
 if __name__ == '__main__':
   unittest.main()
