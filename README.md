@@ -42,4 +42,4 @@ And finally, we can run the following to test our chatrooms
 
 These tests are suppossed to test the code and not to throw errors.
 
-> Dev: [Mauricio Chávez](https://twitter.com/ImBrianstorm)
+> Dev: [Mauricio Chávez Olea] 315266847 (https://twitter.com/ImBrianstorm)
